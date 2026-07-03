@@ -11,7 +11,7 @@ FONT_PATH = os.path.join(BASE_DIR, "font.ttf")
 IMAGE_DELAY = 5000  
 
 # 역 목록 (진접 -> 사당 방향)
-BASE_STATIONS = ["진접", "총신대입구", "사당"] 
+BASE_STATIONS = ["진접", "이촌", "동작", "총신대입구", "사당"] 
 
 # 초기 해상도 설정
 CONTROL_SIZE = "800x480"
