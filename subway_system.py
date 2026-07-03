@@ -8,8 +8,11 @@ import pygame
 # --- 설정 ---
 BASE_DIR = "./"  
 FONT_PATH = os.path.join(BASE_DIR, "font.ttf") 
-STATIONS = ["사당", "총신대입구", "진접"] # 폴더명에 맞게 설정
 IMAGE_DELAY = 5000  
+
+# ✨ 진접역부터 사당역 방향으로 모든 역 이름을 순서대로 적어주세요. (폴더명과 일치해야 함)
+# 코드가 행선지에 따라 이 목록을 자동으로 뒤집어줍니다.
+BASE_STATIONS = ["진접", "총신대입구", "사당"] 
 
 # 초기 해상도 설정
 CONTROL_SIZE = "800x480"
@@ -24,19 +27,26 @@ class SubwaySystem:
         # 오디오 초기화
         pygame.mixer.init()
 
-        # 상태 변수
-        self.station_idx = 0
-        self.direction = "사당행" 
+        # ✨ 상태 변수 (기본 행선지를 진접행으로 변경)
+        self.direction = "진접행" 
+        
+        # 방향에 따른 현재 구동용 역 목록 생성 (진접행이면 리스트를 뒤집어서 사당부터 시작)
+        if self.direction == "진접행":
+            self.active_stations = list(reversed(BASE_STATIONS))
+        else:
+            self.active_stations = list(BASE_STATIONS)
+            
+        self.station_idx = 0 # 무조건 리스트의 첫 번째 역부터 시작
         self.is_standby = False
         self.departure_state = 0 
         self.image_loop_idx = 0
-        self.is_playing_announce = False # 안내방송 재생 상태 추적
+        self.is_playing_announce = False 
         
         # 전체화면 상태 변수
         self.control_fs = False
         self.display_fs = False
         
-        # 텍스트 위치 조절 오프셋 (화살표 키로 조절)
+        # 텍스트 위치 조절 오프셋
         self.text_offset_x = 0
         self.text_offset_y = 0
         
@@ -48,7 +58,7 @@ class SubwaySystem:
         self.display_label.pack(fill="both", expand=True)
 
         self.create_control_ui()
-        self.setup_key_bindings() # 단축키 설정
+        self.setup_key_bindings() 
         self.update_display_loop()
 
     def create_control_ui(self):
@@ -60,7 +70,8 @@ class SubwaySystem:
         
         tk.Button(self.main_frame, text="행선지변경", bg="#4169E1", fg="white", font=("Helvetica", 12), command=self.toggle_direction).grid(row=0, column=3, padx=10, pady=10)
 
-        self.lbl_current = tk.Label(self.main_frame, text=f"이번 방송역: {STATIONS[self.station_idx]}", font=("Helvetica", 14))
+        # STATIONS 대신 self.active_stations 사용
+        self.lbl_current = tk.Label(self.main_frame, text=f"이번 방송역: {self.active_stations[self.station_idx]}", font=("Helvetica", 14))
         self.lbl_current.grid(row=1, column=0, columnspan=2, pady=10, sticky="w")
         
         tk.Button(self.main_frame, text="출입문", bg="#1E90FF", fg="white", font=("Helvetica", 12), command=self.play_door).grid(row=1, column=2, padx=5)
@@ -70,7 +81,6 @@ class SubwaySystem:
 
         tk.Button(self.main_frame, text="◀ 이전역", bg="#FF6A6A", fg="white", font=("Helvetica", 14), command=lambda: self.change_station(-1)).grid(row=3, column=0, pady=20)
         
-        # 시작/중지 버튼 변수 할당 (상태 변화를 위해)
         self.btn_announce = tk.Button(self.main_frame, text="시 작", bg="#1E90FF", fg="white", font=("Helvetica", 16, "bold"), command=self.toggle_announce)
         self.btn_announce.grid(row=3, column=1, columnspan=2, sticky="we", padx=10)
         
@@ -78,13 +88,11 @@ class SubwaySystem:
 
     # --- 단축키 설정 ---
     def setup_key_bindings(self):
-        # F키: 전체화면 토글
         self.root.bind("<f>", self.toggle_control_fs)
         self.root.bind("<F>", self.toggle_control_fs)
         self.display_window.bind("<f>", self.toggle_display_fs)
         self.display_window.bind("<F>", self.toggle_display_fs)
         
-        # 화살표키: 텍스트 수동 위치 조절
         for win in (self.root, self.display_window):
             win.bind("<Up>", self.move_text_up)
             win.bind("<Down>", self.move_text_down)
@@ -110,7 +118,16 @@ class SubwaySystem:
 
     def toggle_direction(self):
         if self.check_lockout(): return
+        
+        # 행선지 전환
         self.direction = "진접행" if self.direction == "사당행" else "사당행"
+        
+        # ✨ 행선지에 따라 리스트 새로고침 및 뒤집기
+        if self.direction == "진접행":
+            self.active_stations = list(reversed(BASE_STATIONS))
+        else:
+            self.active_stations = list(BASE_STATIONS)
+            
         self.station_idx = 0 
         self.lbl_dest.config(text=self.direction)
         self.update_ui_labels()
@@ -147,32 +164,26 @@ class SubwaySystem:
     def change_station(self, delta):
         if self.check_lockout(): return
         new_idx = self.station_idx + delta
-        if 0 <= new_idx < len(STATIONS):
+        if 0 <= new_idx < len(self.active_stations):
             self.station_idx = new_idx
             self.update_ui_labels()
             self.image_loop_idx = 0
 
-    # ---------------------------------------------------------
-    # 오디오 시작/중지 토글 및 자동 복귀 로직
-    # ---------------------------------------------------------
     def toggle_announce(self):
         if self.check_lockout(): return
         
-        # 재생 중이라면 중지
         if self.is_playing_announce:
             pygame.mixer.music.stop()
             self.is_playing_announce = False
             self.btn_announce.config(text="시 작", bg="#1E90FF")
-        # 재생 중이 아니라면 시작
         else:
-            station_dir = os.path.join(BASE_DIR, STATIONS[self.station_idx])
+            station_dir = os.path.join(BASE_DIR, self.active_stations[self.station_idx])
             audio_path = self.find_audio_file(station_dir, "announce")
             self.play_audio(audio_path, is_announce=True)
 
     def play_audio(self, path, is_announce=False):
         if path and os.path.exists(path):
             try:
-                # 리눅스 Pygame 한글 경로 인식 버그 우회: 파이썬이 파일을 직접 열어서 전달
                 audio_file = open(path, "rb")
                 pygame.mixer.music.load(audio_file)
                 pygame.mixer.music.play()
@@ -192,26 +203,22 @@ class SubwaySystem:
 
     def check_audio_end(self):
         if self.is_playing_announce:
-            # get_busy()는 음악이 재생중이면 True, 끝나면 False 반환
             if not pygame.mixer.music.get_busy():
                 self.is_playing_announce = False
                 self.btn_announce.config(text="시 작", bg="#1E90FF")
             else:
-                # 아직 재생중이라면 0.2초(200ms) 뒤에 다시 확인
                 self.root.after(200, self.check_audio_end)
-    # ---------------------------------------------------------
 
     def update_ui_labels(self):
-        self.lbl_current.config(text=f"이번 방송역: {STATIONS[self.station_idx]}")
+        self.lbl_current.config(text=f"이번 방송역: {self.active_stations[self.station_idx]}")
 
     # --- 디스플레이 로직 ---
     def update_display_loop(self):
-        current_station = STATIONS[self.station_idx]
+        current_station = self.active_stations[self.station_idx]
         station_dir = os.path.join(BASE_DIR, current_station)
         
         img_path = None
         
-        # 1. 출발 상태 체크
         if self.departure_state in (1, 2):
             specific_dep_img_lower = os.path.join(BASE_DIR, f"departure_{self.direction}.png")
             specific_dep_img_upper = os.path.join(BASE_DIR, f"departure_{self.direction}.PNG")
@@ -230,11 +237,9 @@ class SubwaySystem:
             else:
                 img_path = standby_img
                 
-        # 2. 대기 상태 체크
         elif self.is_standby:
             img_path = os.path.join(station_dir, "standby.png")
             
-        # 3. 반복 화면 상태 (대소문자 상관없이 모든 이미지(png, jpg) 긁어오기)
         else:
             loop_dir = os.path.join(station_dir, self.direction)
             if os.path.exists(loop_dir):
@@ -249,7 +254,6 @@ class SubwaySystem:
                     img_path = images[self.image_loop_idx % len(images)]
                     self.image_loop_idx += 1
 
-        # 이미지 렌더링 및 텍스트 오버레이
         if img_path and os.path.exists(img_path):
             try:
                 img = Image.open(img_path).convert("RGBA")
@@ -268,7 +272,7 @@ class SubwaySystem:
                 draw = ImageDraw.Draw(img)
                 
                 try:
-                    font = ImageFont.truetype(FONT_PATH, 50)
+                    font = ImageFont.truetype(FONT_PATH, 60)
                 except IOError:
                     try:
                         font = ImageFont.truetype("C:/Windows/Fonts/malgun.ttf", 50)
