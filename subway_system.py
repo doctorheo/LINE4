@@ -21,13 +21,13 @@ class SubwaySystem:
     def __init__(self, root):
         self.root = root
         self.root.title("안내방송 제어 화면")
-        self.root.geometry(f"{CONTROL_SIZE}+0+0")
+        self.root.geometry(CONTROL_SIZE) # 강제 위치 지정(+0+0) 제거됨
         
-        # 오디오 초기화 (리눅스 오디오 에러 방지를 위해 예외 처리 추가)
+        # 오디오 초기화
         try:
             pygame.mixer.init()
         except Exception as e:
-            print(f"[경고] 오디오 시스템 초기화 실패 (리눅스 오디오 드라이버 문제일 수 있음): {e}")
+            print(f"[경고] 오디오 초기화 실패: {e}")
 
         # 상태 변수
         self.direction = "진접행" 
@@ -45,21 +45,17 @@ class SubwaySystem:
         # 전체화면 상태 변수
         self.control_fs = False
         self.display_fs = False
-        self.text_offset_x = 0
-        self.text_offset_y = 0
         
         # 디스플레이 창 설정
         self.display_window = tk.Toplevel(self.root)
         self.display_window.title("안내 화면")
-        self.display_window.geometry(f"{DISPLAY_SIZE[0]}x{DISPLAY_SIZE[1]}+50+50")
+        self.display_window.geometry(f"{DISPLAY_SIZE[0]}x{DISPLAY_SIZE[1]}") # 강제 위치 지정 제거됨
         self.display_label = tk.Label(self.display_window, bg="black")
         self.display_label.pack(fill="both", expand=True)
 
         self.create_control_ui()
         self.setup_key_bindings() 
         self.update_display_loop()
-        
-        # (요청에 따라 강제 끌어올리기 기능 삭제됨)
 
     def create_control_ui(self):
         self.main_frame = tk.Frame(self.root)
@@ -86,16 +82,11 @@ class SubwaySystem:
         tk.Button(self.main_frame, text="다음역 ▶", bg="#FF6A6A", fg="white", font=("Helvetica", 14), command=lambda: self.change_station(1)).grid(row=3, column=3, pady=20)
 
     def setup_key_bindings(self):
+        # F키(전체화면) 기능만 남기고 방향키(위치조절) 기능은 완전히 제거
         self.root.bind("<f>", self.toggle_control_fs)
         self.root.bind("<F>", self.toggle_control_fs)
         self.display_window.bind("<f>", self.toggle_display_fs)
         self.display_window.bind("<F>", self.toggle_display_fs)
-        
-        for win in (self.root, self.display_window):
-            win.bind("<Up>", self.move_text_up)
-            win.bind("<Down>", self.move_text_down)
-            win.bind("<Left>", self.move_text_left)
-            win.bind("<Right>", self.move_text_right)
 
     def toggle_control_fs(self, event=None):
         self.control_fs = not self.control_fs
@@ -104,11 +95,6 @@ class SubwaySystem:
     def toggle_display_fs(self, event=None):
         self.display_fs = not self.display_fs
         self.display_window.attributes("-fullscreen", self.display_fs)
-
-    def move_text_up(self, event=None): self.text_offset_y -= 10
-    def move_text_down(self, event=None): self.text_offset_y += 10
-    def move_text_left(self, event=None): self.text_offset_x -= 10
-    def move_text_right(self, event=None): self.text_offset_x += 10
 
     def check_lockout(self):
         return self.departure_state > 0
@@ -179,7 +165,6 @@ class SubwaySystem:
                 audio_file = open(path, "rb")
                 pygame.mixer.music.load(audio_file)
                 pygame.mixer.music.play()
-                print(f"[오디오 재생] {path}")
                 
                 if is_announce:
                     self.is_playing_announce = True
@@ -190,9 +175,9 @@ class SubwaySystem:
                         self.is_playing_announce = False
                         self.btn_announce.config(text="시 작", bg="#1E90FF")
             except Exception as e:
-                print(f"[오디오 에러] {path} 재생 실패: {e}")
+                print(f"[오디오 에러] {e}")
         else:
-            print(f"[오디오 없음] 경로를 확인하세요: {path}")
+            print(f"[오디오 없음] {path}")
 
     def check_audio_end(self):
         if self.is_playing_announce:
@@ -237,19 +222,11 @@ class SubwaySystem:
                     img_path = images[self.image_loop_idx % len(images)]
                     self.image_loop_idx += 1
 
-        # 터미널에 현재 어떤 이미지를 로드하려고 하는지 로그 출력
-        if img_path:
-            print(f"[디스플레이] 이미지 렌더링 중: {img_path}")
-        else:
-            print(f"[디스플레이] 해당 상태의 이미지를 찾을 수 없어 검은 화면 표시됨. (역: {current_station}, 상태: {self.direction})")
-
-        # 창 해상도 자동 감지
         win_w = self.display_label.winfo_width()
         win_h = self.display_label.winfo_height()
         if win_w < 10 or win_h < 10:  
             win_w, win_h = DISPLAY_SIZE
 
-        # 폰트 로드
         try:
             font = ImageFont.truetype(FONT_PATH, 60)
         except IOError:
@@ -258,7 +235,6 @@ class SubwaySystem:
             except IOError:
                 font = ImageFont.load_default()
 
-        # 이미지를 성공적으로 찾았을 때
         if img_path and os.path.exists(img_path):
             try:
                 img = Image.open(img_path).convert("RGBA")
@@ -269,16 +245,16 @@ class SubwaySystem:
                 img = img.resize((win_w, win_h), resample_filter)
                 draw = ImageDraw.Draw(img)
                 
-                text_x = img.width - 250 + self.text_offset_x
-                text_y = 30 + self.text_offset_y
+                # 수동 좌표 기능 제거됨 (기본 우측 상단 고정)
+                text_x = img.width - 250
+                text_y = 30
                 draw.text((text_x, text_y), self.direction, font=font, fill=(255, 255, 255, 255))
                 
                 self.tk_img = ImageTk.PhotoImage(img)
                 self.display_label.config(image=self.tk_img)
             except Exception as e:
-                print(f"[이미지 에러] {img_path} 렌더링 실패: {e}")
+                print(f"[이미지 에러] {e}")
                 
-        # 이미지를 못 찾았을 때 (순수한 검은 화면)
         else:
             img = Image.new("RGBA", (win_w, win_h), "black")
             self.tk_img = ImageTk.PhotoImage(img)
