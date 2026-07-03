@@ -6,8 +6,9 @@ from PIL import Image, ImageTk, ImageFont, ImageDraw
 import pygame
 
 # --- 설정 ---
-BASE_DIR = "./"  
-FONT_PATH = os.path.join(BASE_DIR, "font.ttf") 
+# 파이썬 파일(.py)이 있는 실제 폴더의 절대 경로를 자동으로 추적합니다.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  
+FONT_PATH = os.path.join(BASE_DIR, "font.ttf")
 IMAGE_DELAY = 5000  
 
 # ✨ 진접역부터 사당역 방향으로 모든 역 이름을 순서대로 적어주세요. (폴더명과 일치해야 함)
