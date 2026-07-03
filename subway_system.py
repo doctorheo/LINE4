@@ -171,18 +171,22 @@ class SubwaySystem:
 
     def play_audio(self, path, is_announce=False):
         if path and os.path.exists(path):
-            pygame.mixer.music.load(path)
-            pygame.mixer.music.play()
-            
-            if is_announce:
-                self.is_playing_announce = True
-                self.btn_announce.config(text="중 지", bg="#FF4500") # 오렌지레드로 버튼 색상 변경
-                self.check_audio_end() # 오디오 종료 감시 시작
-            else:
-                # 다른 버튼(출입문, 출발방송)을 눌러 오디오가 끊긴 경우 시작버튼 원상복구
-                if self.is_playing_announce:
-                    self.is_playing_announce = False
-                    self.btn_announce.config(text="시 작", bg="#1E90FF")
+            try:
+                # 리눅스 Pygame 한글 경로 인식 버그 우회: 파이썬이 파일을 직접 열어서 전달
+                audio_file = open(path, "rb")
+                pygame.mixer.music.load(audio_file)
+                pygame.mixer.music.play()
+                
+                if is_announce:
+                    self.is_playing_announce = True
+                    self.btn_announce.config(text="중 지", bg="#FF4500") 
+                    self.check_audio_end() 
+                else:
+                    if self.is_playing_announce:
+                        self.is_playing_announce = False
+                        self.btn_announce.config(text="시 작", bg="#1E90FF")
+            except Exception as e:
+                print(f"오디오 재생 중 오류 발생: {e}")
         else:
             print(f"오디오 파일을 찾을 수 없습니다. 경로를 확인하세요: {path}")
 
@@ -207,6 +211,7 @@ class SubwaySystem:
         
         img_path = None
         
+        # 1. 출발 상태 체크
         if self.departure_state in (1, 2):
             specific_dep_img_lower = os.path.join(BASE_DIR, f"departure_{self.direction}.png")
             specific_dep_img_upper = os.path.join(BASE_DIR, f"departure_{self.direction}.PNG")
@@ -225,17 +230,26 @@ class SubwaySystem:
             else:
                 img_path = standby_img
                 
+        # 2. 대기 상태 체크
         elif self.is_standby:
             img_path = os.path.join(station_dir, "standby.png")
             
+        # 3. 반복 화면 상태 (대소문자 상관없이 모든 이미지(png, jpg) 긁어오기)
         else:
             loop_dir = os.path.join(station_dir, self.direction)
             if os.path.exists(loop_dir):
-                images = sorted(glob.glob(os.path.join(loop_dir, "*.png")))
+                images = []
+                for f in os.listdir(loop_dir):
+                    if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+                        images.append(os.path.join(loop_dir, f))
+                
+                images = sorted(images)
+                
                 if images:
                     img_path = images[self.image_loop_idx % len(images)]
                     self.image_loop_idx += 1
 
+        # 이미지 렌더링 및 텍스트 오버레이
         if img_path and os.path.exists(img_path):
             try:
                 img = Image.open(img_path).convert("RGBA")
