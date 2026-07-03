@@ -8,14 +8,14 @@ import pygame
 # --- 설정 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  
 FONT_PATH = os.path.join(BASE_DIR, "font.ttf") 
-IMAGE_DELAY = 2000  
+IMAGE_DELAY = 5000  
 
 # 역 목록 (진접 -> 사당 방향)
 BASE_STATIONS = ["진접", "총신대입구", "사당"] 
 
 # 초기 해상도 설정
 CONTROL_SIZE = "800x480"
-DISPLAY_SIZE = (1280, 720) 
+DISPLAY_SIZE = (1920, 1080) 
 
 class SubwaySystem:
     def __init__(self, root):
@@ -242,7 +242,7 @@ class SubwaySystem:
             win_w, win_h = DISPLAY_SIZE
 
         try:
-            font = ImageFont.truetype(FONT_PATH, 50)
+            font = ImageFont.truetype(FONT_PATH, 60)
         except IOError:
             try:
                 font = ImageFont.truetype("C:/Windows/Fonts/malgun.ttf", 50)
