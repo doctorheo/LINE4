@@ -8,20 +8,20 @@ import pygame
 # --- 설정 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  
 FONT_PATH = os.path.join(BASE_DIR, "font.ttf") 
-IMAGE_DELAY = 5000  
+IMAGE_DELAY = 2000  
 
 # 역 목록 (진접 -> 사당 방향)
 BASE_STATIONS = ["진접", "총신대입구", "사당"] 
 
 # 초기 해상도 설정
 CONTROL_SIZE = "800x480"
-DISPLAY_SIZE = (1920, 1080) 
+DISPLAY_SIZE = (1280, 720) 
 
 class SubwaySystem:
     def __init__(self, root):
         self.root = root
         self.root.title("안내방송 제어 화면")
-        self.root.geometry(CONTROL_SIZE) # 강제 위치 지정(+0+0) 제거됨
+        self.root.geometry(CONTROL_SIZE) # 창 강제 위치 지정 제거됨
         
         # 오디오 초기화
         try:
@@ -46,10 +46,14 @@ class SubwaySystem:
         self.control_fs = False
         self.display_fs = False
         
+        # ✨ 화살표 키로 조절할 텍스트 오프셋 변수 (복구됨)
+        self.text_offset_x = 0
+        self.text_offset_y = 0
+        
         # 디스플레이 창 설정
         self.display_window = tk.Toplevel(self.root)
         self.display_window.title("안내 화면")
-        self.display_window.geometry(f"{DISPLAY_SIZE[0]}x{DISPLAY_SIZE[1]}") # 강제 위치 지정 제거됨
+        self.display_window.geometry(f"{DISPLAY_SIZE[0]}x{DISPLAY_SIZE[1]}") # 창 강제 위치 지정 제거됨
         self.display_label = tk.Label(self.display_window, bg="black")
         self.display_label.pack(fill="both", expand=True)
 
@@ -82,11 +86,18 @@ class SubwaySystem:
         tk.Button(self.main_frame, text="다음역 ▶", bg="#FF6A6A", fg="white", font=("Helvetica", 14), command=lambda: self.change_station(1)).grid(row=3, column=3, pady=20)
 
     def setup_key_bindings(self):
-        # F키(전체화면) 기능만 남기고 방향키(위치조절) 기능은 완전히 제거
+        # F키(전체화면) 바인딩
         self.root.bind("<f>", self.toggle_control_fs)
         self.root.bind("<F>", self.toggle_control_fs)
         self.display_window.bind("<f>", self.toggle_display_fs)
         self.display_window.bind("<F>", self.toggle_display_fs)
+        
+        # ✨ 화살표키(위치조절) 바인딩 (복구됨)
+        for win in (self.root, self.display_window):
+            win.bind("<Up>", self.move_text_up)
+            win.bind("<Down>", self.move_text_down)
+            win.bind("<Left>", self.move_text_left)
+            win.bind("<Right>", self.move_text_right)
 
     def toggle_control_fs(self, event=None):
         self.control_fs = not self.control_fs
@@ -95,6 +106,12 @@ class SubwaySystem:
     def toggle_display_fs(self, event=None):
         self.display_fs = not self.display_fs
         self.display_window.attributes("-fullscreen", self.display_fs)
+
+    # ✨ 화살표 키 이벤트 함수 (복구됨)
+    def move_text_up(self, event=None): self.text_offset_y -= 10
+    def move_text_down(self, event=None): self.text_offset_y += 10
+    def move_text_left(self, event=None): self.text_offset_x -= 10
+    def move_text_right(self, event=None): self.text_offset_x += 10
 
     def check_lockout(self):
         return self.departure_state > 0
@@ -197,17 +214,14 @@ class SubwaySystem:
         
         img_path = None
         
-        # 1. 출발 상태 체크
         if self.departure_state in (1, 2):
             img_path = self.find_image_file(BASE_DIR, f"departure_{self.direction}")
             if not img_path: img_path = self.find_image_file(BASE_DIR, "departure")
             if not img_path: img_path = self.find_image_file(station_dir, "standby")
                 
-        # 2. 대기 상태 체크
         elif self.is_standby:
             img_path = self.find_image_file(station_dir, "standby")
             
-        # 3. 반복 화면 상태
         else:
             loop_dir = os.path.join(station_dir, self.direction)
             if os.path.exists(loop_dir):
@@ -228,7 +242,7 @@ class SubwaySystem:
             win_w, win_h = DISPLAY_SIZE
 
         try:
-            font = ImageFont.truetype(FONT_PATH, 60)
+            font = ImageFont.truetype(FONT_PATH, 50)
         except IOError:
             try:
                 font = ImageFont.truetype("C:/Windows/Fonts/malgun.ttf", 50)
@@ -245,9 +259,9 @@ class SubwaySystem:
                 img = img.resize((win_w, win_h), resample_filter)
                 draw = ImageDraw.Draw(img)
                 
-                # 수동 좌표 기능 제거됨 (기본 우측 상단 고정)
-                text_x = img.width - 250
-                text_y = 30
+                # ✨ 화살표 키 오프셋 값 적용 (복구됨)
+                text_x = img.width - 250 + self.text_offset_x
+                text_y = 30 + self.text_offset_y
                 draw.text((text_x, text_y), self.direction, font=font, fill=(255, 255, 255, 255))
                 
                 self.tk_img = ImageTk.PhotoImage(img)
