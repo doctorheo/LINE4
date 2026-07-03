@@ -6,12 +6,11 @@ from PIL import Image, ImageTk, ImageFont, ImageDraw
 import pygame
 
 # --- 설정 ---
-# 파이썬 파일이 위치한 폴더를 절대경로로 자동 추적합니다.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  
 FONT_PATH = os.path.join(BASE_DIR, "font.ttf") 
 IMAGE_DELAY = 5000  
 
-# 캡처해주신 폴더명에 맞춘 역 목록 (진접 -> 사당 방향)
+# 역 목록 (진접 -> 사당 방향)
 BASE_STATIONS = ["진접", "총신대입구", "사당"] 
 
 # 초기 해상도 설정
@@ -22,11 +21,13 @@ class SubwaySystem:
     def __init__(self, root):
         self.root = root
         self.root.title("안내방송 제어 화면")
-        # 창이 겹치지 않게 위치(0, 0) 지정
         self.root.geometry(f"{CONTROL_SIZE}+0+0")
         
-        # 오디오 초기화
-        pygame.mixer.init()
+        # 오디오 초기화 (리눅스 오디오 에러 방지를 위해 예외 처리 추가)
+        try:
+            pygame.mixer.init()
+        except Exception as e:
+            print(f"[경고] 오디오 시스템 초기화 실패 (리눅스 오디오 드라이버 문제일 수 있음): {e}")
 
         # 상태 변수
         self.direction = "진접행" 
@@ -47,7 +48,7 @@ class SubwaySystem:
         self.text_offset_x = 0
         self.text_offset_y = 0
         
-        # 디스플레이 창 설정 (선택창과 약간 엇갈리게 50, 50 위치에 띄움)
+        # 디스플레이 창 설정
         self.display_window = tk.Toplevel(self.root)
         self.display_window.title("안내 화면")
         self.display_window.geometry(f"{DISPLAY_SIZE[0]}x{DISPLAY_SIZE[1]}+50+50")
@@ -58,9 +59,7 @@ class SubwaySystem:
         self.setup_key_bindings() 
         self.update_display_loop()
         
-        # 리눅스 환경에서 선택창이 안내화면 뒤로 숨는 것을 방지
-        self.root.lift()
-        self.root.focus_force()
+        # (요청에 따라 강제 끌어올리기 기능 삭제됨)
 
     def create_control_ui(self):
         self.main_frame = tk.Frame(self.root)
@@ -180,6 +179,7 @@ class SubwaySystem:
                 audio_file = open(path, "rb")
                 pygame.mixer.music.load(audio_file)
                 pygame.mixer.music.play()
+                print(f"[오디오 재생] {path}")
                 
                 if is_announce:
                     self.is_playing_announce = True
@@ -190,9 +190,9 @@ class SubwaySystem:
                         self.is_playing_announce = False
                         self.btn_announce.config(text="시 작", bg="#1E90FF")
             except Exception as e:
-                pass
+                print(f"[오디오 에러] {path} 재생 실패: {e}")
         else:
-            pass
+            print(f"[오디오 없음] 경로를 확인하세요: {path}")
 
     def check_audio_end(self):
         if self.is_playing_announce:
@@ -237,6 +237,12 @@ class SubwaySystem:
                     img_path = images[self.image_loop_idx % len(images)]
                     self.image_loop_idx += 1
 
+        # 터미널에 현재 어떤 이미지를 로드하려고 하는지 로그 출력
+        if img_path:
+            print(f"[디스플레이] 이미지 렌더링 중: {img_path}")
+        else:
+            print(f"[디스플레이] 해당 상태의 이미지를 찾을 수 없어 검은 화면 표시됨. (역: {current_station}, 상태: {self.direction})")
+
         # 창 해상도 자동 감지
         win_w = self.display_label.winfo_width()
         win_h = self.display_label.winfo_height()
@@ -270,7 +276,7 @@ class SubwaySystem:
                 self.tk_img = ImageTk.PhotoImage(img)
                 self.display_label.config(image=self.tk_img)
             except Exception as e:
-                pass
+                print(f"[이미지 에러] {img_path} 렌더링 실패: {e}")
                 
         # 이미지를 못 찾았을 때 (순수한 검은 화면)
         else:
