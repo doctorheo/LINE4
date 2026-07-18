@@ -234,23 +234,35 @@ class SubwaySystem:
             return
 
         self.full_auto_running = True
-        self.is_standby = True
+        self.is_standby = False
         self.departure_state = 1
         self.btn_announce.config(text="풀오토 실행중", bg="#FF4500")
+        self.play_full_auto_announce()
 
-        door_path = self.find_audio_file(BASE_DIR, "door")
-        self.play_audio(door_path)
-        self.root.after(1200, self.run_full_auto_departure)
-
-    def run_full_auto_departure(self):
+    def play_full_auto_announce(self):
         if not self.full_auto_running:
             return
 
-        self.is_standby = False
-        self.departure_state = 2
         station_dir = os.path.join(BASE_DIR, self.active_stations[self.station_idx])
         audio_path = self.find_audio_file(station_dir, "announce")
         self.play_audio(audio_path, is_announce=True)
+
+    def play_full_auto_door(self):
+        if not self.full_auto_running:
+            return
+
+        door_path = self.find_audio_file(BASE_DIR, "door")
+        self.play_audio(door_path)
+        self.root.after(2000, self.move_to_next_full_auto_station)
+
+    def move_to_next_full_auto_station(self):
+        if not self.full_auto_running:
+            return
+
+        self.station_idx = (self.station_idx + 1) % len(self.active_stations)
+        self.update_ui_labels()
+        self.image_loop_idx = 0
+        self.root.after(0, self.play_full_auto_announce)
 
     def play_audio(self, path, is_announce=False):
         if path and os.path.exists(path):
@@ -277,9 +289,7 @@ class SubwaySystem:
             if not pygame.mixer.music.get_busy():
                 self.is_playing_announce = False
                 if self.full_auto_running:
-                    self.full_auto_running = False
-                    self.btn_announce.config(text="완 료", bg="#2E8B57")
-                    self.root.after(1000, lambda: self.btn_announce.config(text="시 작", bg="#1E90FF"))
+                    self.root.after(2000, self.play_full_auto_door)
                 else:
                     self.btn_announce.config(text="시 작", bg="#1E90FF")
             else:
