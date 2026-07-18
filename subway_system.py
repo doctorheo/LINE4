@@ -41,6 +41,8 @@ class SubwaySystem:
         self.departure_state = 0 
         self.image_loop_idx = 0
         self.is_playing_announce = False 
+        self.mode = "easy"
+        self.full_auto_running = False
         
         # 전체화면 상태 변수
         self.control_fs = False
@@ -65,25 +67,72 @@ class SubwaySystem:
         self.main_frame = tk.Frame(self.root)
         self.main_frame.pack(expand=True)
 
+        self.mode_frame = tk.Frame(self.main_frame)
+        self.mode_frame.grid(row=0, column=0, columnspan=4, sticky="we", padx=10, pady=(5, 0))
+
+        self.btn_easy_mode = tk.Button(self.mode_frame, text="이지모드", bg="#5DADE2", fg="white", font=("Helvetica", 10, "bold"), command=lambda: self.set_mode("easy"))
+        self.btn_easy_mode.grid(row=0, column=0, padx=(0, 5))
+
+        self.btn_advanced_mode = tk.Button(self.mode_frame, text="어드밴스드모드", bg="#7DCEA0", fg="white", font=("Helvetica", 10, "bold"), command=lambda: self.set_mode("advanced"))
+        self.btn_advanced_mode.grid(row=0, column=1, padx=5)
+
+        self.btn_full_auto_mode = tk.Button(self.mode_frame, text="풀오토모드", bg="#F5B041", fg="white", font=("Helvetica", 10, "bold"), command=lambda: self.set_mode("full_auto"))
+        self.btn_full_auto_mode.grid(row=0, column=2, padx=5)
+
+        self.lbl_mode = tk.Label(self.main_frame, text="현재 모드: 이지모드", font=("Helvetica", 12, "bold"), fg="#1B4F72")
+        self.lbl_mode.grid(row=1, column=0, columnspan=4, sticky="w", padx=10, pady=(4, 8))
+
         self.lbl_dest = tk.Label(self.main_frame, text=self.direction, font=("Helvetica", 16, "bold"), fg="blue")
-        self.lbl_dest.grid(row=0, column=2, pady=10, sticky="e")
+        self.lbl_dest.grid(row=2, column=2, pady=10, sticky="e")
         
-        tk.Button(self.main_frame, text="행선지변경", bg="#4169E1", fg="white", font=("Helvetica", 12), command=self.toggle_direction).grid(row=0, column=3, padx=10, pady=10)
+        self.btn_direction = tk.Button(self.main_frame, text="행선지변경", bg="#4169E1", fg="white", font=("Helvetica", 12), command=self.toggle_direction)
+        self.btn_direction.grid(row=2, column=3, padx=10, pady=10)
 
         self.lbl_current = tk.Label(self.main_frame, text=f"이번 방송역: {self.active_stations[self.station_idx]}", font=("Helvetica", 14))
-        self.lbl_current.grid(row=1, column=0, columnspan=2, pady=10, sticky="w")
+        self.lbl_current.grid(row=3, column=0, columnspan=2, pady=10, sticky="w")
         
-        tk.Button(self.main_frame, text="출입문", bg="#1E90FF", fg="white", font=("Helvetica", 12), command=self.play_door).grid(row=1, column=2, padx=5)
-        tk.Button(self.main_frame, text="대기", bg="#1E90FF", fg="white", font=("Helvetica", 12), command=self.toggle_standby).grid(row=1, column=3, padx=5)
+        self.btn_door = tk.Button(self.main_frame, text="출입문", bg="#1E90FF", fg="white", font=("Helvetica", 12), command=self.play_door)
+        self.btn_door.grid(row=3, column=2, padx=5)
 
-        tk.Button(self.main_frame, text="출발화면/방송", bg="#4169E1", fg="white", font=("Helvetica", 12, "bold"), command=self.handle_departure).grid(row=2, column=2, columnspan=2, sticky="we", pady=10, padx=5)
+        self.btn_standby = tk.Button(self.main_frame, text="대기", bg="#1E90FF", fg="white", font=("Helvetica", 12), command=self.toggle_standby)
+        self.btn_standby.grid(row=3, column=3, padx=5)
 
-        tk.Button(self.main_frame, text="◀ 이전역", bg="#FF6A6A", fg="white", font=("Helvetica", 14), command=lambda: self.change_station(-1)).grid(row=3, column=0, pady=20)
+        self.btn_departure = tk.Button(self.main_frame, text="출발화면/방송", bg="#4169E1", fg="white", font=("Helvetica", 12, "bold"), command=self.handle_departure)
+        self.btn_departure.grid(row=4, column=2, columnspan=2, sticky="we", pady=10, padx=5)
+
+        self.btn_prev = tk.Button(self.main_frame, text="◀ 이전역", bg="#FF6A6A", fg="white", font=("Helvetica", 14), command=lambda: self.change_station(-1))
+        self.btn_prev.grid(row=5, column=0, pady=20)
         
         self.btn_announce = tk.Button(self.main_frame, text="시 작", bg="#1E90FF", fg="white", font=("Helvetica", 16, "bold"), command=self.toggle_announce)
-        self.btn_announce.grid(row=3, column=1, columnspan=2, sticky="we", padx=10)
+        self.btn_announce.grid(row=5, column=1, columnspan=2, sticky="we", padx=10)
         
-        tk.Button(self.main_frame, text="다음역 ▶", bg="#FF6A6A", fg="white", font=("Helvetica", 14), command=lambda: self.change_station(1)).grid(row=3, column=3, pady=20)
+        self.btn_next = tk.Button(self.main_frame, text="다음역 ▶", bg="#FF6A6A", fg="white", font=("Helvetica", 14), command=lambda: self.change_station(1))
+        self.btn_next.grid(row=5, column=3, pady=20)
+
+        self.set_mode(self.mode)
+
+    def set_mode(self, mode):
+        self.mode = mode
+        self.full_auto_running = False
+        self.btn_announce.config(text="시 작", bg="#1E90FF")
+
+        if mode == "easy":
+            visible = [self.btn_door, self.btn_announce, self.btn_prev, self.btn_next, self.btn_direction]
+            hidden = [self.btn_standby, self.btn_departure]
+            self.lbl_mode.config(text="현재 모드: 이지모드")
+        elif mode == "advanced":
+            visible = [self.btn_door, self.btn_standby, self.btn_departure, self.btn_prev, self.btn_announce, self.btn_next, self.btn_direction]
+            hidden = []
+            self.lbl_mode.config(text="현재 모드: 어드밴스드모드")
+        else:
+            visible = [self.btn_announce]
+            hidden = [self.btn_door, self.btn_standby, self.btn_departure, self.btn_prev, self.btn_next, self.btn_direction]
+            self.lbl_mode.config(text="현재 모드: 풀오토모드")
+
+        for btn in hidden:
+            btn.grid_remove()
+        for btn in visible:
+            btn.grid()
 
     def setup_key_bindings(self):
         # F키(전체화면) 바인딩
@@ -166,6 +215,10 @@ class SubwaySystem:
             self.image_loop_idx = 0
 
     def toggle_announce(self):
+        if self.mode == "full_auto":
+            self.start_full_auto()
+            return
+
         if self.check_lockout(): return
         if self.is_playing_announce:
             pygame.mixer.music.stop()
@@ -175,6 +228,29 @@ class SubwaySystem:
             station_dir = os.path.join(BASE_DIR, self.active_stations[self.station_idx])
             audio_path = self.find_audio_file(station_dir, "announce")
             self.play_audio(audio_path, is_announce=True)
+
+    def start_full_auto(self):
+        if self.full_auto_running:
+            return
+
+        self.full_auto_running = True
+        self.is_standby = True
+        self.departure_state = 1
+        self.btn_announce.config(text="풀오토 실행중", bg="#FF4500")
+
+        door_path = self.find_audio_file(BASE_DIR, "door")
+        self.play_audio(door_path)
+        self.root.after(1200, self.run_full_auto_departure)
+
+    def run_full_auto_departure(self):
+        if not self.full_auto_running:
+            return
+
+        self.is_standby = False
+        self.departure_state = 2
+        station_dir = os.path.join(BASE_DIR, self.active_stations[self.station_idx])
+        audio_path = self.find_audio_file(station_dir, "announce")
+        self.play_audio(audio_path, is_announce=True)
 
     def play_audio(self, path, is_announce=False):
         if path and os.path.exists(path):
@@ -200,7 +276,12 @@ class SubwaySystem:
         if self.is_playing_announce:
             if not pygame.mixer.music.get_busy():
                 self.is_playing_announce = False
-                self.btn_announce.config(text="시 작", bg="#1E90FF")
+                if self.full_auto_running:
+                    self.full_auto_running = False
+                    self.btn_announce.config(text="완 료", bg="#2E8B57")
+                    self.root.after(1000, lambda: self.btn_announce.config(text="시 작", bg="#1E90FF"))
+                else:
+                    self.btn_announce.config(text="시 작", bg="#1E90FF")
             else:
                 self.root.after(200, self.check_audio_end)
 
