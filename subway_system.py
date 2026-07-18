@@ -21,7 +21,10 @@ class SubwaySystem:
     def __init__(self, root):
         self.root = root
         self.root.title("안내방송 제어 화면")
-        self.root.geometry(CONTROL_SIZE) # 창 강제 위치 지정 제거됨
+        self.root.geometry(CONTROL_SIZE)
+        self.root.resizable(False, False)
+        self.root.minsize(800, 480)
+        self.root.maxsize(800, 480)
         
         # 오디오 초기화
         try:
@@ -53,7 +56,10 @@ class SubwaySystem:
         # 디스플레이 창 설정
         self.display_window = tk.Toplevel(self.root)
         self.display_window.title("안내 화면")
-        self.display_window.geometry(f"{DISPLAY_SIZE[0]}x{DISPLAY_SIZE[1]}") # 창 강제 위치 지정 제거됨
+        self.display_window.geometry(f"{DISPLAY_SIZE[0]}x{DISPLAY_SIZE[1]}")
+        self.display_window.resizable(False, False)
+        self.display_window.minsize(DISPLAY_SIZE[0], DISPLAY_SIZE[1])
+        self.display_window.maxsize(DISPLAY_SIZE[0], DISPLAY_SIZE[1])
         self.display_label = tk.Label(self.display_window, bg="black")
         self.display_label.pack(fill="both", expand=True)
 
@@ -62,8 +68,9 @@ class SubwaySystem:
         self.update_display_loop()
 
     def create_control_ui(self):
-        self.main_frame = tk.Frame(self.root)
-        self.main_frame.pack(expand=True)
+        self.main_frame = tk.Frame(self.root, width=800, height=480)
+        self.main_frame.pack(fill="none", expand=False)
+        self.main_frame.pack_propagate(False)
 
         self.lbl_dest = tk.Label(self.main_frame, text=self.direction, font=("Helvetica", 16, "bold"), fg="blue")
         self.lbl_dest.grid(row=0, column=2, pady=10, sticky="e")
