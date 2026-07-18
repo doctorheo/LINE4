@@ -43,6 +43,7 @@ class SubwaySystem:
         self.is_playing_announce = False 
         self.mode = "easy"
         self.full_auto_running = False
+        self.full_auto_playing = None
         
         # 전체화면 상태 변수
         self.control_fs = False
@@ -109,23 +110,25 @@ class SubwaySystem:
         self.btn_next = tk.Button(self.main_frame, text="다음역 ▶", bg="#FF6A6A", fg="white", font=("Helvetica", 14), command=lambda: self.change_station(1))
         self.btn_next.grid(row=5, column=3, pady=20)
 
+        self.btn_stop = tk.Button(self.main_frame, text="강제중지", bg="#C0392B", fg="white", font=("Helvetica", 12, "bold"), command=self.force_stop)
+        self.btn_stop.grid(row=6, column=0, columnspan=4, sticky="we", padx=10, pady=(0, 10))
+
         self.set_mode(self.mode)
 
     def set_mode(self, mode):
         self.mode = mode
-        self.full_auto_running = False
-        self.btn_announce.config(text="시 작", bg="#1E90FF")
+        self.force_stop()
 
         if mode == "easy":
-            visible = [self.btn_door, self.btn_announce, self.btn_prev, self.btn_next, self.btn_direction]
+            visible = [self.btn_stop, self.btn_door, self.btn_announce, self.btn_prev, self.btn_next, self.btn_direction]
             hidden = [self.btn_standby, self.btn_departure]
             self.lbl_mode.config(text="현재 모드: 이지모드")
         elif mode == "advanced":
-            visible = [self.btn_door, self.btn_standby, self.btn_departure, self.btn_prev, self.btn_announce, self.btn_next, self.btn_direction]
+            visible = [self.btn_stop, self.btn_door, self.btn_standby, self.btn_departure, self.btn_prev, self.btn_announce, self.btn_next, self.btn_direction]
             hidden = []
             self.lbl_mode.config(text="현재 모드: 어드밴스드모드")
         else:
-            visible = [self.btn_announce]
+            visible = [self.btn_stop, self.btn_announce]
             hidden = [self.btn_door, self.btn_standby, self.btn_departure, self.btn_prev, self.btn_next, self.btn_direction]
             self.lbl_mode.config(text="현재 모드: 풀오토모드")
 
@@ -234,6 +237,7 @@ class SubwaySystem:
             return
 
         self.full_auto_running = True
+        self.full_auto_playing = "announce"
         self.is_standby = False
         self.departure_state = 1
         self.btn_announce.config(text="풀오토 실행중", bg="#FF4500")
@@ -243,6 +247,7 @@ class SubwaySystem:
         if not self.full_auto_running:
             return
 
+        self.full_auto_playing = "announce"
         station_dir = os.path.join(BASE_DIR, self.active_stations[self.station_idx])
         audio_path = self.find_audio_file(station_dir, "announce")
         self.play_audio(audio_path, is_announce=True)
@@ -251,9 +256,19 @@ class SubwaySystem:
         if not self.full_auto_running:
             return
 
+        self.full_auto_playing = "door"
         door_path = self.find_audio_file(BASE_DIR, "door")
         self.play_audio(door_path)
-        self.root.after(2000, self.move_to_next_full_auto_station)
+        self.check_full_auto_door_end()
+
+    def check_full_auto_door_end(self):
+        if not self.full_auto_running or self.full_auto_playing != "door":
+            return
+
+        if not pygame.mixer.music.get_busy():
+            self.root.after(2000, self.move_to_next_full_auto_station)
+        else:
+            self.root.after(200, self.check_full_auto_door_end)
 
     def move_to_next_full_auto_station(self):
         if not self.full_auto_running:
@@ -288,12 +303,21 @@ class SubwaySystem:
         if self.is_playing_announce:
             if not pygame.mixer.music.get_busy():
                 self.is_playing_announce = False
-                if self.full_auto_running:
+                if self.full_auto_running and self.full_auto_playing == "announce":
                     self.root.after(2000, self.play_full_auto_door)
-                else:
+                elif not self.full_auto_running:
                     self.btn_announce.config(text="시 작", bg="#1E90FF")
             else:
                 self.root.after(200, self.check_audio_end)
+
+    def force_stop(self):
+        self.full_auto_running = False
+        self.full_auto_playing = None
+        self.is_standby = False
+        self.departure_state = 0
+        self.is_playing_announce = False
+        pygame.mixer.music.stop()
+        self.btn_announce.config(text="시 작", bg="#1E90FF")
 
     def update_ui_labels(self):
         self.lbl_current.config(text=f"이번 방송역: {self.active_stations[self.station_idx]}")
