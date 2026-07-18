@@ -1,2 +1,3 @@
 .vscode/settings.json
 **/*.pyc
+__pycache__/subway_system.cpython-312.pyc

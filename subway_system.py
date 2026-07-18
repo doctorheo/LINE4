@@ -44,6 +44,7 @@ class SubwaySystem:
         self.mode = "easy"
         self.full_auto_running = False
         self.full_auto_playing = None
+        self.initial_intro_locked = False
         
         # 전체화면 상태 변수
         self.control_fs = False
@@ -237,11 +238,25 @@ class SubwaySystem:
             return
 
         self.full_auto_running = True
-        self.full_auto_playing = "announce"
+        self.full_auto_playing = "departure"
+        self.initial_intro_locked = True
         self.is_standby = False
         self.departure_state = 1
         self.btn_announce.config(text="풀오토 실행중", bg="#FF4500")
-        self.play_full_auto_announce()
+        self.station_idx = 0
+        self.update_ui_labels()
+        self.image_loop_idx = 0
+        self.play_full_auto_departure()
+
+    def play_full_auto_departure(self):
+        if not self.full_auto_running:
+            return
+
+        self.full_auto_playing = "departure"
+        departure_audio = self.find_audio_file(BASE_DIR, f"departure_{self.direction}")
+        if not departure_audio:
+            departure_audio = self.find_audio_file(BASE_DIR, "departure")
+        self.play_audio(departure_audio, is_announce=True)
 
     def play_full_auto_announce(self):
         if not self.full_auto_running:
@@ -303,7 +318,10 @@ class SubwaySystem:
         if self.is_playing_announce:
             if not pygame.mixer.music.get_busy():
                 self.is_playing_announce = False
-                if self.full_auto_running and self.full_auto_playing == "announce":
+                if self.full_auto_running and self.full_auto_playing == "departure":
+                    self.initial_intro_locked = False
+                    self.root.after(2000, self.play_full_auto_announce)
+                elif self.full_auto_running and self.full_auto_playing == "announce":
                     self.root.after(2000, self.play_full_auto_door)
                 elif not self.full_auto_running:
                     self.btn_announce.config(text="시 작", bg="#1E90FF")
@@ -313,6 +331,7 @@ class SubwaySystem:
     def force_stop(self):
         self.full_auto_running = False
         self.full_auto_playing = None
+        self.initial_intro_locked = False
         self.is_standby = False
         self.departure_state = 0
         self.is_playing_announce = False
@@ -328,16 +347,14 @@ class SubwaySystem:
         station_dir = os.path.join(BASE_DIR, current_station)
         
         img_path = None
+        base_departure_img = self.find_image_file(BASE_DIR, f"departure_{self.direction}")
+        if not base_departure_img:
+            base_departure_img = self.find_image_file(BASE_DIR, "departure")
         
-        if self.departure_state in (1, 2):
-            img_path = self.find_image_file(BASE_DIR, f"departure_{self.direction}")
-            if not img_path: img_path = self.find_image_file(BASE_DIR, "departure")
-            if not img_path: img_path = self.find_image_file(station_dir, "standby")
-                
-        elif self.is_standby:
-            img_path = self.find_image_file(station_dir, "standby")
-            
-        else:
+        if self.full_auto_running and self.full_auto_playing == "departure" and self.initial_intro_locked:
+            img_path = base_departure_img
+
+        elif self.full_auto_running:
             loop_dir = os.path.join(station_dir, self.direction)
             if os.path.exists(loop_dir):
                 images = []
@@ -350,6 +367,35 @@ class SubwaySystem:
                 if images:
                     img_path = images[self.image_loop_idx % len(images)]
                     self.image_loop_idx += 1
+
+        elif self.departure_state in (1, 2):
+            img_path = base_departure_img
+            if not img_path:
+                img_path = self.find_image_file(station_dir, "departure")
+            if not img_path:
+                img_path = self.find_image_file(station_dir, "standby")
+                
+        elif self.is_standby:
+            img_path = self.find_image_file(station_dir, "standby")
+            if not img_path:
+                img_path = base_departure_img
+            
+        else:
+            img_path = base_departure_img
+            if not img_path:
+                img_path = self.find_image_file(station_dir, "standby")
+            if not img_path:
+                loop_dir = os.path.join(station_dir, self.direction)
+                if os.path.exists(loop_dir):
+                    images = []
+                    for f in os.listdir(loop_dir):
+                        if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+                            images.append(os.path.join(loop_dir, f))
+                    
+                    images = sorted(images)
+                    
+                    if images:
+                        img_path = images[0]
 
         win_w = self.display_label.winfo_width()
         win_h = self.display_label.winfo_height()
